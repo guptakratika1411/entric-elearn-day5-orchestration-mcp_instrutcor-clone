@@ -14,11 +14,18 @@ An agent map is a plan that says who does what, and in which order.
 
 | Agent | Owns these files | Reports back |
 | --- | --- | --- |
-| `backend-dev` | `backend/LearnHub.Api` only | files changed, routes, request and response shapes |
-| `frontend-dev` | `frontend/` only | files changed, pages, api.js functions |
-| `test-writer` | `backend/LearnHub.Tests` only | tests added, pass and fail count, bugs found |
-| `code-reviewer` | nothing (reads only) | bugs, mismatches, style, missing tests |
+| `backend-dev` | `backend/LearnHub.Api` only (uses `add-api-endpoint`, `shop-backend`, `shop-orders`) | files changed, routes, request and response shapes |
+| `frontend-dev` | `frontend/` only (uses `add-react-page`, `shop-frontend`) | files changed, pages, api.js functions |
+| `test-writer` | `backend/LearnHub.Tests` only (uses `write-api-tests`, `shop-tests`) | tests added, pass and fail count, bugs found |
+| `code-reviewer` | nothing (reads only; can run the `e2e-check` skill) | bugs, mismatches, style, missing tests |
 | `ui-designer` | React pages and CSS in `frontend/` | files changed, what looks better, build result |
+
+## The shop skills
+
+Day 4 built the paid-course shop (cart, coupons, bundles, orders, refunds, revenue). It is already in this repo.
+The agents use five skills for it: `shop-backend`, `shop-orders`, `shop-tests`, `shop-frontend` and `e2e-check`.
+When you add a new feature that touches the shop (for example gift cards), tell the agents to read these skills first.
+Day 4 had a separate `reviewer` agent. Here we keep `code-reviewer`, which does the same job.
 
 ## Demo feature: Course discussion (Q&A per course)
 

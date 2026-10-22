@@ -106,3 +106,14 @@ button:hover { background: var(--accent-dark); }
 .form-stack input, .form-stack select, .form-stack textarea { max-width: 100%; width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem; font-family: inherit; }
 .lesson-fields { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed var(--border); border-radius: 8px; }
 .lesson-fields button { align-self: flex-start; }
+
+/* Prices, cart and orders */
+.price-row { display: flex; justify-content: space-between; align-items: center; }
+.price { font-weight: 700; font-size: 1.1rem; }
+.price.free { color: #166534; }
+.cart-table { width: 100%; border-collapse: collapse; background: #fff; }
+.cart-table th, .cart-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.cart-table .num { text-align: right; }
+.cart-table tfoot td { font-weight: 700; }
+.order-status { font-weight: 600; }
+.order-status.refunded { color: #991b1b; }

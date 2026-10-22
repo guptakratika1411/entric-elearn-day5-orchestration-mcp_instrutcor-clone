@@ -4,7 +4,7 @@ import { createCourse } from '../api.js'
 
 const emptyLesson = { title: '', durationMinutes: 10, content: '' }
 const emptyForm = {
-  title: '', shortDescription: '', category: '', instructor: '', level: 'Beginner',
+  title: '', shortDescription: '', category: '', instructor: '', level: 'Beginner', price: 0,
 }
 
 export default function InstructorPage() {
@@ -24,6 +24,7 @@ export default function InstructorPage() {
     try {
       const course = await createCourse({
         ...form,
+        price: Number(form.price) || 0,
         lessons: lessons.map((l) => ({ ...l, durationMinutes: Number(l.durationMinutes) })),
       })
       setCreated(course)
@@ -45,6 +46,7 @@ export default function InstructorPage() {
         <input value={form.shortDescription} onChange={setField('shortDescription')} placeholder="Short description" />
         <input value={form.category} onChange={setField('category')} placeholder="Category (for example Programming)" />
         <input value={form.instructor} onChange={setField('instructor')} placeholder="Instructor name" />
+        <input type="number" min="0" step="0.01" value={form.price} onChange={setField('price')} placeholder="Price (0 = free)" />
         <select value={form.level} onChange={setField('level')}>
           <option>Beginner</option>
           <option>Intermediate</option>

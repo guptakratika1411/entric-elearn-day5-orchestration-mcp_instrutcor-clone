@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getCourses, getBookmarks, addBookmark, removeBookmark, getSavedName } from '../api.js'
+import { getCourses, getBookmarks, addBookmark, removeBookmark, addToCart, getSavedName } from '../api.js'
 import CourseCard from '../components/CourseCard.jsx'
 
 export default function CoursesPage() {
@@ -7,6 +7,7 @@ export default function CoursesPage() {
   const [search, setSearch] = useState('')
   const [bookmarkedIds, setBookmarkedIds] = useState([])
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
 
   useEffect(() => {
     getCourses(search)
@@ -46,6 +47,22 @@ export default function CoursesPage() {
     }
   }
 
+  async function handleAddToCart(courseId) {
+    const name = getSavedName()
+    if (!name) {
+      setError('Enter your name first (open My Courses and show your courses), then add to cart.')
+      return
+    }
+    try {
+      await addToCart(name, courseId)
+      setMessage('Added to your cart.')
+      setError('')
+    } catch (err) {
+      setMessage('')
+      setError(err.message)
+    }
+  }
+
   return (
     <>
       <h1>Courses</h1>
@@ -57,6 +74,7 @@ export default function CoursesPage() {
         />
       </div>
       {error && <p className="message error">{error}</p>}
+      {message && <p className="message ok">{message}</p>}
       {courses.length === 0 && !error && <p className="muted">No courses found.</p>}
       <div className="grid">
         {courses.map((c) => (
@@ -65,6 +83,7 @@ export default function CoursesPage() {
             course={c}
             bookmarked={bookmarkedIds.includes(c.id)}
             onToggleBookmark={handleToggleBookmark}
+            onAddToCart={handleAddToCart}
           />
         ))}
       </div>

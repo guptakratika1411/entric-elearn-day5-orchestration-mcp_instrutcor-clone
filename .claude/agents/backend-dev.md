@@ -11,6 +11,7 @@ Files you own: everything in `backend/LearnHub.Api` (Models, Data/InMemoryStore.
 Files you must not touch: `frontend/`, `backend/LearnHub.Tests`, and docs.
 
 1. Read CLAUDE.md and `.claude/skills/add-api-endpoint/SKILL.md`. Follow them.
+   For shop work (prices, cart, bundles, coupons) also follow `.claude/skills/shop-backend/SKILL.md`. For checkout, orders, refunds and revenue follow `.claude/skills/shop-orders/SKILL.md`. The shop rules are in CLAUDE.md under "The shop".
 2. Keep logic in `InMemoryStore` methods. Keep endpoints thin.
 3. If the main agent gave you an API contract (routes, request and response shapes), follow it exactly. The frontend is being built at the same time against that contract.
 4. Run `cd backend && dotnet build`. Fix errors.

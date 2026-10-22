@@ -1,6 +1,6 @@
 # LearnHub (Day 5)
 
-LearnHub is a small e-learning website. You can browse courses, read lessons, take quizzes, track progress, enroll, bookmark courses and earn certificates. Instructors can add courses.
+LearnHub is a small e-learning website. You can browse courses, read lessons, take quizzes, track progress, enroll, bookmark courses and earn certificates. Courses can be free or paid: students use a cart, coupons and a bundle discount, and can ask for a refund. Instructors can add courses and see their revenue.
 It has a backend (C#, .NET 8) and a frontend (React). You run both at the same time.
 
 ## What you need installed
@@ -35,7 +35,11 @@ Now open http://localhost:5173 in your browser.
 1. `cd backend`
 2. `dotnet test`
 
-All tests should pass. They check enrollment, search, quiz scoring, progress, bookmarks, certificates and adding courses.
+All tests should pass. They check enrollment, search, quiz scoring, progress, bookmarks, certificates, adding courses and the whole shop (cart, coupons, bundles, orders, refunds, revenue).
+
+## Check the whole shop
+
+With the backend running, run `bash scripts/e2e-shop.sh` from the repo root. It walks the full buying trip and prints PASS or FAIL for each step.
 
 Note: Claude Code hooks in this repo run `dotnet build` after C# edits and `dotnet test` when Claude finishes. This happens by itself.
 
@@ -47,18 +51,20 @@ Open http://localhost:5080/api/courses in your browser. You should see a list of
 
 | Folder | What it is for |
 | --- | --- |
-| `backend/LearnHub.Api/Models` | The shapes of our data: Course, Lesson, Enrollment, QuizQuestion, LessonProgress |
+| `backend/LearnHub.Api/Models` | The shapes of our data: Course, Lesson, Enrollment, QuizQuestion, LessonProgress, Bookmark, CartItem, Coupon, Order |
 | `backend/LearnHub.Api/Data` | The in-memory store with the sample courses |
 | `backend/LearnHub.Tests` | The tests (run with `dotnet test` from `backend/`) |
 | `backend/LearnHub.Api/Endpoints` | The API routes, one file per area |
 | `frontend/src/pages` | The screens of the website (courses, quiz, progress) |
 | `frontend/src/components` | Small shared pieces (top bar, course card) |
 | `frontend/src/api.js` | All calls from the website to the backend |
-| `.claude/skills` | Skills: step-by-step guides that Claude Code follows for common jobs |
+| `.claude/skills` | Skills: step-by-step guides that Claude Code follows for common jobs (including the five shop skills) |
+| `scripts` | `e2e-shop.sh`, the end-to-end shop check |
 | `.claude/agents` | Specialist helper agents (backend-dev, frontend-dev, test-writer, code-reviewer, ui-designer) |
 | `.claude/commands` | Saved prompts: /run-app, /review-changes, /add-test |
 | `.claude/hooks` | Scripts that run automatically (see `.claude/settings.json`) |
 | `.mcp.json` | MCP servers for this project (Playwright browser) |
+| `FEATURE.md` | The spec of the paid-course shop (rules R1 to R20). The shop skills read it |
 | `AGENT-MAP.md` | Agent map and sample prompt for Day 5 |
 | `MCP.md` | What MCP is and how to use it |
 | `HOOKS-COMMANDS-AGENTS.md` | Reference notes for hooks, commands and agents (Day 4) |

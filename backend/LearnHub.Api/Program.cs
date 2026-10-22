@@ -16,6 +16,10 @@ app.MapCourseEndpoints();
 app.MapEnrollmentEndpoints();
 app.MapQuizEndpoints();
 app.MapProgressEndpoints();
+app.MapCartEndpoints();
+app.MapCheckoutEndpoints();
+app.MapOrderEndpoints();
+app.MapRevenueEndpoints();
 app.MapBookmarkEndpoints();
 app.MapCertificateEndpoints();
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using LearnHub.Api.Models;
 
 namespace LearnHub.Api.Data;
@@ -8,7 +9,7 @@ public class InMemoryStore
     {
         new Course
         {
-            Id = 1, Title = "Intro to C# Programming", ShortDescription = "Learn the basics of C# by writing small programs.",
+            Id = 1, Price = 0m, Title = "Intro to C# Programming", ShortDescription = "Learn the basics of C# by writing small programs.",
             Category = "Programming", Instructor = "Maya Rao", Level = "Beginner",
             Lessons =
             {
@@ -20,7 +21,7 @@ public class InMemoryStore
         },
         new Course
         {
-            Id = 2, Title = "JavaScript for the Web", ShortDescription = "Build interactive web pages with modern JavaScript.",
+            Id = 2, Price = 40m, Title = "JavaScript for the Web", ShortDescription = "Build interactive web pages with modern JavaScript.",
             Category = "Programming", Instructor = "Liam Carter", Level = "Intermediate",
             Lessons =
             {
@@ -32,7 +33,7 @@ public class InMemoryStore
         },
         new Course
         {
-            Id = 3, Title = "UI Design Basics", ShortDescription = "Learn layout, colour and type for clean interfaces.",
+            Id = 3, Price = 30m, Title = "UI Design Basics", ShortDescription = "Learn layout, colour and type for clean interfaces.",
             Category = "Design", Instructor = "Sofia Alvarez", Level = "Beginner",
             Lessons =
             {
@@ -43,7 +44,7 @@ public class InMemoryStore
         },
         new Course
         {
-            Id = 4, Title = "Data Analysis with SQL", ShortDescription = "Ask questions of data using SQL queries.",
+            Id = 4, Price = 30m, Title = "Data Analysis with SQL", ShortDescription = "Ask questions of data using SQL queries.",
             Category = "Data", Instructor = "Ken Watanabe", Level = "Intermediate",
             Lessons =
             {
@@ -56,7 +57,7 @@ public class InMemoryStore
         },
         new Course
         {
-            Id = 5, Title = "Cloud Fundamentals", ShortDescription = "Understand servers, storage and networks in the cloud.",
+            Id = 5, Price = 0m, Title = "Cloud Fundamentals", ShortDescription = "Understand servers, storage and networks in the cloud.",
             Category = "Cloud", Instructor = "Priya Nair", Level = "Beginner",
             Lessons =
             {
@@ -68,7 +69,7 @@ public class InMemoryStore
         },
         new Course
         {
-            Id = 6, Title = "Deploying Apps with Containers", ShortDescription = "Package an app in a container and run it anywhere.",
+            Id = 6, Price = 60m, Title = "Deploying Apps with Containers", ShortDescription = "Package an app in a container and run it anywhere.",
             Category = "Cloud", Instructor = "Omar Hassan", Level = "Advanced",
             Lessons =
             {
@@ -84,6 +85,26 @@ public class InMemoryStore
     public List<LessonProgress> Progress { get; } = new();
     public List<Bookmark> Bookmarks { get; } = new();
     private int _nextBookmarkId = 1;
+
+    // ---- Shop data ----
+
+    /// <summary>The store's clock. Tests replace it so dates are fixed.</summary>
+    public Func<DateTime> Clock { get; set; } = () => DateTime.UtcNow;
+
+    public List<CartItem> Cart { get; } = new();
+    public List<Order> Orders { get; } = new();
+
+    public List<Coupon> Coupons { get; } = new()
+    {
+        new Coupon { Code = "WELCOME10", Type = "Percent", Value = 10, ExpiresOn = new DateTime(2099, 12, 31), MaxUses = 1000 },
+        new Coupon { Code = "SAVE20", Type = "Fixed", Value = 20, ExpiresOn = new DateTime(2099, 12, 31), MaxUses = 1000, MinOrderAmount = 50 },
+        new Coupon { Code = "CLOUD25", Type = "Percent", Value = 25, ExpiresOn = new DateTime(2099, 12, 31), MaxUses = 100, Category = "Cloud" },
+        new Coupon { Code = "FLAT50", Type = "Fixed", Value = 50, ExpiresOn = new DateTime(2099, 12, 31), MaxUses = 100 },
+        new Coupon { Code = "OLD5", Type = "Percent", Value = 5, ExpiresOn = new DateTime(2024, 12, 31), MaxUses = 100 },
+    };
+
+    private int _nextEnrollmentId = 1;
+    private int _nextOrderId = 1;
 
     public List<QuizQuestion> QuizQuestions { get; } = new()
     {
@@ -134,9 +155,17 @@ public class InMemoryStore
         if (!Courses.Any(c => c.Id == courseId)) return (null, "Course not found.");
         if (IsEnrolled(name, courseId)) return (null, "Already enrolled in this course.");
 
-        var enrollment = new Enrollment { Id = Enrollments.Count + 1, CourseId = courseId, StudentName = name };
+        var enrollment = new Enrollment { Id = _nextEnrollmentId++, CourseId = courseId, StudentName = name };
         Enrollments.Add(enrollment);
         return (enrollment, null);
+    }
+
+    /// <summary>Direct enrollment is only for free courses. Paid courses go through the cart.</summary>
+    public (Enrollment? Enrollment, string? Error) EnrollFree(int courseId, string? studentName)
+    {
+        var course = Courses.FirstOrDefault(c => c.Id == courseId);
+        if (course is not null && course.Price > 0) return (null, "This course is paid. Add it to your cart and check out.");
+        return Enroll(courseId, studentName);
     }
 
     // ---- Quiz ----
@@ -187,6 +216,254 @@ public class InMemoryStore
                 return (course.Id, course.Title, ids.Count, total, percent, ids);
             }).ToList();
     }
+
+    // ---- Cart ----
+
+    private const decimal BundleRate = 0.15m;
+    private const int BundleMinCourses = 3;
+    private const decimal InstructorShareRate = 0.70m;
+    private const int RefundDays = 7;
+    private const double RefundMaxProgressPercent = 30;
+
+    private static decimal Money(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+    private static string Fmt(decimal value) => value.ToString("0.00", CultureInfo.InvariantCulture);
+
+    /// <summary>Returns the new cart item, or an error text.</summary>
+    public (CartItem? Item, string? Error) AddToCart(string? studentName, int courseId)
+    {
+        var name = studentName?.Trim();
+        if (string.IsNullOrEmpty(name)) return (null, "studentName is required.");
+        var course = Courses.FirstOrDefault(c => c.Id == courseId);
+        if (course is null) return (null, "Course not found.");
+        if (course.Price <= 0) return (null, "This course is free. Enroll in it directly.");
+        if (IsEnrolled(name, courseId)) return (null, "You already own this course.");
+        if (IsInCart(name, courseId)) return (null, "Already in your cart.");
+
+        var item = new CartItem { StudentName = name, CourseId = courseId, AddedAt = Clock() };
+        Cart.Add(item);
+        return (item, null);
+    }
+
+    /// <summary>Returns true if an item was removed.</summary>
+    public bool RemoveFromCart(string? studentName, int courseId)
+    {
+        var name = studentName?.Trim() ?? "";
+        return Cart.RemoveAll(i => i.CourseId == courseId &&
+            string.Equals(i.StudentName, name, StringComparison.OrdinalIgnoreCase)) > 0;
+    }
+
+    public bool IsInCart(string studentName, int courseId) =>
+        Cart.Any(i => i.CourseId == courseId &&
+            string.Equals(i.StudentName, studentName.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    public List<CartItem> GetCart(string? studentName)
+    {
+        var name = studentName?.Trim() ?? "";
+        return Cart
+            .Where(i => string.Equals(i.StudentName, name, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    // ---- Prices: bundle and coupon ----
+
+    /// <summary>Works out the price of the student's cart. Bundle first, then the coupon. Changes nothing.</summary>
+    public PriceQuote Quote(string? studentName, string? couponCode)
+    {
+        var name = studentName?.Trim() ?? "";
+        var quote = new PriceQuote
+        {
+            Lines = GetCart(name).Select(i =>
+            {
+                var course = Courses.First(c => c.Id == i.CourseId);
+                return new OrderLine { CourseId = course.Id, Title = course.Title, Instructor = course.Instructor, Price = course.Price };
+            }).ToList()
+        };
+        var lines = quote.Lines;
+
+        // 1. Bundle: 3 or more paid courses get 15% off every line.
+        if (lines.Count >= BundleMinCourses)
+            foreach (var line in lines) line.BundleDiscount = Money(line.Price * BundleRate);
+
+        // 2. Coupon, worked out on the prices after the bundle.
+        var code = couponCode?.Trim();
+        if (!string.IsNullOrEmpty(code) && lines.Count > 0)
+        {
+            var error = ApplyCoupon(name, code, quote, out var applied);
+            if (error is not null)
+            {
+                quote.CouponRejected = true;
+                quote.CouponMessage = error;
+            }
+            else
+            {
+                quote.CouponCode = applied!.Code;
+                quote.CouponMessage = applied.Type == "Percent"
+                    ? $"Coupon {applied.Code} applied: {applied.Value.ToString("0.##", CultureInfo.InvariantCulture)}% off."
+                    : $"Coupon {applied.Code} applied: {Fmt(applied.Value)} off.";
+            }
+        }
+
+        foreach (var line in lines)
+            line.Final = Math.Max(0, line.Price - line.BundleDiscount - line.CouponDiscount);
+        quote.Subtotal = lines.Sum(l => l.Price);
+        quote.BundleDiscount = lines.Sum(l => l.BundleDiscount);
+        quote.CouponDiscount = lines.Sum(l => l.CouponDiscount);
+        quote.Total = Math.Max(0, lines.Sum(l => l.Final));
+        return quote;
+    }
+
+    /// <summary>Checks the coupon and fills CouponDiscount on the lines it applies to. Returns an error text or null.</summary>
+    private string? ApplyCoupon(string studentName, string code, PriceQuote quote, out Coupon? applied)
+    {
+        applied = null;
+        var coupon = Coupons.FirstOrDefault(c => string.Equals(c.Code, code, StringComparison.OrdinalIgnoreCase));
+        if (coupon is null) return "Coupon not found.";
+        if (coupon.ExpiresOn.Date < Clock().Date) return "This coupon has expired.";
+        if (coupon.UsedCount >= coupon.MaxUses) return "This coupon has no uses left.";
+        if (HasUsedCoupon(studentName, coupon.Code)) return "You have already used this coupon.";
+
+        var afterBundle = quote.Lines.Sum(l => l.Price - l.BundleDiscount);
+        if (afterBundle < coupon.MinOrderAmount)
+            return $"This coupon needs an order of at least {Fmt(coupon.MinOrderAmount)} after the bundle discount.";
+
+        var eligible = quote.Lines.Where(l =>
+            string.IsNullOrEmpty(coupon.Category) ||
+            string.Equals(Courses.First(c => c.Id == l.CourseId).Category, coupon.Category, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (eligible.Count == 0) return $"This coupon only works for {coupon.Category} courses.";
+
+        var eligibleTotal = eligible.Sum(l => l.Price - l.BundleDiscount);
+        if (coupon.Type == "Percent")
+        {
+            foreach (var line in eligible)
+                line.CouponDiscount = Math.Min(line.Price - line.BundleDiscount, Money((line.Price - line.BundleDiscount) * coupon.Value / 100m));
+        }
+        else if (eligibleTotal > 0)
+        {
+            // A fixed amount never goes above what the matching lines cost. It is shared by line price.
+            var discount = Math.Min(coupon.Value, eligibleTotal);
+            var given = 0m;
+            for (var i = 0; i < eligible.Count; i++)
+            {
+                var net = eligible[i].Price - eligible[i].BundleDiscount;
+                eligible[i].CouponDiscount = i == eligible.Count - 1 ? discount - given : Money(discount * net / eligibleTotal);
+                given += eligible[i].CouponDiscount;
+            }
+        }
+        applied = coupon;
+        return null;
+    }
+
+    /// <summary>A student may use each coupon once. A refunded order does not count.</summary>
+    public bool HasUsedCoupon(string studentName, string code) =>
+        Orders.Any(o => o.Status == "Paid" && o.CouponCode is not null &&
+            string.Equals(o.CouponCode, code, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(o.StudentName, studentName.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    // ---- Checkout and orders ----
+
+    /// <summary>Re-checks everything, then saves the order. Returns the order, or an error text.</summary>
+    public (Order? Order, string? Error) Checkout(string? studentName, string? couponCode)
+    {
+        var name = studentName?.Trim();
+        if (string.IsNullOrEmpty(name)) return (null, "studentName is required.");
+        var cart = GetCart(name);
+        if (cart.Count == 0) return (null, "Your cart is empty.");
+        foreach (var item in cart)
+            if (IsEnrolled(name, item.CourseId))
+                return (null, $"You already own {Courses.First(c => c.Id == item.CourseId).Title}. Remove it from your cart.");
+
+        var quote = Quote(name, couponCode);
+        if (quote.CouponRejected) return (null, quote.CouponMessage);
+
+        var order = new Order
+        {
+            Id = _nextOrderId++,
+            StudentName = name,
+            CreatedAt = Clock(),
+            Lines = quote.Lines,
+            CouponCode = quote.CouponCode,
+            Subtotal = quote.Subtotal,
+            BundleDiscount = quote.BundleDiscount,
+            CouponDiscount = quote.CouponDiscount,
+            Total = quote.Total,
+            Status = "Paid"
+        };
+        Orders.Add(order);
+
+        if (quote.CouponCode is not null)
+            Coupons.First(c => string.Equals(c.Code, quote.CouponCode, StringComparison.OrdinalIgnoreCase)).UsedCount++;
+        foreach (var line in order.Lines) Enroll(line.CourseId, name);
+        Cart.RemoveAll(i => string.Equals(i.StudentName, name, StringComparison.OrdinalIgnoreCase));
+        return (order, null);
+    }
+
+    public List<Order> GetOrders(string? studentName)
+    {
+        var name = studentName?.Trim() ?? "";
+        return Orders
+            .Where(o => string.Equals(o.StudentName, name, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(o => o.Id)
+            .ToList();
+    }
+
+    // ---- Refunds ----
+
+    /// <summary>Refunds an order. Returns the order, or an error text ("Order not found.", "This order was already refunded.", or the reason).</summary>
+    public (Order? Order, string? Error) RefundOrder(int orderId)
+    {
+        var order = Orders.FirstOrDefault(o => o.Id == orderId);
+        if (order is null) return (null, "Order not found.");
+        if (order.Status == "Refunded") return (null, "This order was already refunded.");
+        if (Clock() - order.CreatedAt > TimeSpan.FromDays(RefundDays))
+            return (null, $"Refunds are only possible within {RefundDays} days of the order.");
+
+        foreach (var line in order.Lines)
+        {
+            var percent = ProgressPercent(order.StudentName, line.CourseId);
+            if (percent >= RefundMaxProgressPercent)
+                return (null, $"You have finished {Math.Round(percent)}% of {line.Title}. Refunds need progress under {RefundMaxProgressPercent}% on every course.");
+        }
+
+        order.Status = "Refunded";
+        foreach (var line in order.Lines)
+        {
+            Enrollments.RemoveAll(e => e.CourseId == line.CourseId &&
+                string.Equals(e.StudentName, order.StudentName, StringComparison.OrdinalIgnoreCase));
+            Progress.RemoveAll(p => p.CourseId == line.CourseId &&
+                string.Equals(p.StudentName, order.StudentName, StringComparison.OrdinalIgnoreCase));
+        }
+        if (order.CouponCode is not null)
+        {
+            var coupon = Coupons.FirstOrDefault(c => string.Equals(c.Code, order.CouponCode, StringComparison.OrdinalIgnoreCase));
+            if (coupon is not null && coupon.UsedCount > 0) coupon.UsedCount--;
+        }
+        return (order, null);
+    }
+
+    private double ProgressPercent(string studentName, int courseId)
+    {
+        var total = Courses.First(c => c.Id == courseId).Lessons.Count;
+        if (total == 0) return 0;
+        var done = Progress.Count(p => p.CourseId == courseId &&
+            string.Equals(p.StudentName, studentName, StringComparison.OrdinalIgnoreCase));
+        return 100.0 * done / total;
+    }
+
+    // ---- Instructor revenue ----
+
+    /// <summary>One row per instructor. The share is 70% of the paid sales that were not refunded.</summary>
+    public List<(string Instructor, decimal GrossSales, decimal Refunds, decimal InstructorShare)> GetInstructorRevenue() =>
+        Courses.Select(c => c.Instructor).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(i => i).Select(instructor =>
+        {
+            var lines = Orders
+                .SelectMany(o => o.Lines.Select(l => (o.Status, Line: l)))
+                .Where(x => string.Equals(x.Line.Instructor, instructor, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var gross = lines.Sum(x => x.Line.Final);
+            var refunds = lines.Where(x => x.Status == "Refunded").Sum(x => x.Line.Final);
+            return (instructor, gross, refunds, Money((gross - refunds) * InstructorShareRate));
+        }).ToList();
 
     // ---- Bookmarks ----
 
@@ -255,6 +532,7 @@ public class InMemoryStore
         if (string.IsNullOrWhiteSpace(draft.Instructor)) return (null, "instructor is required.");
         var level = Levels.FirstOrDefault(l => string.Equals(l, draft.Level?.Trim(), StringComparison.OrdinalIgnoreCase));
         if (level is null) return (null, "level must be Beginner, Intermediate or Advanced.");
+        if (draft.Price < 0) return (null, "price cannot be below 0.");
         if (draft.Lessons.Count == 0) return (null, "At least one lesson is required.");
         if (draft.Lessons.Any(l => string.IsNullOrWhiteSpace(l.Title))) return (null, "Every lesson needs a title.");
         if (draft.Lessons.Any(l => l.DurationMinutes <= 0)) return (null, "Every lesson needs durationMinutes above 0.");
@@ -270,6 +548,7 @@ public class InMemoryStore
             Category = draft.Category.Trim(),
             Instructor = draft.Instructor.Trim(),
             Level = level,
+            Price = draft.Price,
             Lessons = draft.Lessons.Select(l => new Lesson
             {
                 Id = nextLessonId++,

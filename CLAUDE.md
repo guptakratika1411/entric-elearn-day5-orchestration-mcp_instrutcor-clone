@@ -13,8 +13,8 @@ Data lives in memory only. It resets when the backend stops.
 
 ## Folder map
 
-- `backend/LearnHub.Api/Models` - data classes (Course, Lesson, Enrollment, QuizQuestion, LessonProgress, Bookmark)
-- `backend/LearnHub.Api/Data/InMemoryStore.cs` - all data and the business logic (enroll, quiz scoring, progress, bookmarks, certificates, add course), one singleton
+- `backend/LearnHub.Api/Models` - data classes (Course, Lesson, Enrollment, QuizQuestion, LessonProgress, Bookmark, CartItem, Coupon, Order)
+- `backend/LearnHub.Api/Data/InMemoryStore.cs` - all data and the business logic (enroll, quiz scoring, progress, bookmarks, certificates, add course, cart, coupons, checkout, refunds, revenue), one singleton. Shop dates use `store.Clock`, not `DateTime.UtcNow`
 - `backend/LearnHub.Api/Endpoints` - one static class per area
 - `backend/LearnHub.Api/Program.cs` - registers the store and endpoints
 - `backend/LearnHub.Tests` - xUnit tests for the store logic (`cd backend && dotnet test`)
@@ -22,10 +22,11 @@ Data lives in memory only. It resets when the backend stops.
 - `frontend/src/components` - small shared pieces
 - `frontend/src/api.js` - every backend call
 - `frontend/src/index.css` - all styles
-- `.claude/skills` - step-by-step guides (add-api-endpoint, add-react-page, seed-sample-data, write-api-tests)
+- `.claude/skills` - step-by-step guides (add-api-endpoint, add-react-page, seed-sample-data, write-api-tests, shop-backend, shop-orders, shop-tests, shop-frontend, e2e-check)
 - `.claude/agents` - specialist helpers: `backend-dev` (backend only), `frontend-dev` (frontend only), `test-writer`, `code-reviewer`, `ui-designer`
 - `.claude/commands` - saved prompts: `/run-app`, `/review-changes`, `/add-test`
-- `.claude/hooks` and `.claude/settings.json` - automatic checks: build after a `.cs` edit, block edits to secret files, run tests when Claude stops
+- `.claude/hooks` and `.claude/settings.json` - automatic checks: build after a `.cs` edit, block edits to secret files, run tests when Claude stops, block dangerous shell commands (`block-dangerous.sh`), and ask for a CLAUDE.md update after every `git commit` (`after-commit-update-claude-md.sh`)
+- `scripts/e2e-shop.sh` - end-to-end shop check with curl (API must be running on 5080). Run it with `bash scripts/e2e-shop.sh`
 - `.mcp.json` - project MCP servers (Playwright browser). See `MCP.md`
 - `AGENT-MAP.md` - how the main agent hands work to the agents
 
@@ -58,7 +59,19 @@ Data lives in memory only. It resets when the backend stops.
 2. Keep code small and simple. Match the style of nearby files.
 3. After backend changes run `dotnet build` and `dotnet test`. After frontend changes run `npm run build`.
 
+### The shop (paid courses)
+1. Every course has a `Price`. 0 means free. Free courses are joined with `POST /api/enrollments`. Paid courses are bought through the cart (`EnrollFree` refuses them).
+2. Routes: `/api/cart` (GET, POST, DELETE), `/api/checkout/preview`, `/api/checkout`, `/api/orders`, `/api/orders/{id}/refund`, `/api/instructors/revenue`.
+3. Price maths lives in `InMemoryStore.Quote`: bundle (3 or more paid courses, 15% off) first, then the coupon. Money is rounded to 2 decimals with `MidpointRounding.AwayFromZero`. The total is never below 0.
+4. A coupon is used once per student. Refunds give the use back.
+5. A refund needs: order is at most 7 days old and progress is under 30% on every course. It removes the enrollments and progress.
+6. Instructor share is 70% of paid sales that were not refunded.
+7. Enrollment ids come from a counter, because refunds remove enrollments. Instructor-added courses have a price that defaults to 0.
+8. Tests use `store.Clock = () => fixedDate`. Never use the real clock in a test.
+
 ### Working with agents
 1. Plan first. Agree on an API contract (routes and shapes) before backend and frontend work starts.
 2. `backend-dev` edits only `backend/LearnHub.Api`. `frontend-dev` edits only `frontend/`. `test-writer` edits only `backend/LearnHub.Tests`. `code-reviewer` edits nothing.
 3. Hooks run `dotnet build` after `.cs` edits and `dotnet test` when Claude stops. Do not edit `.env` or `appsettings.*.json` (a hook blocks it).
+4. Dangerous shell commands (`rm -rf`, force push, `git reset --hard`, `git clean -f`, `npm publish`, `curl | sh`) are blocked by a hook. After a `git commit`, a hook asks you to update CLAUDE.md and commit it with the message `docs: update CLAUDE.md`.
+5. For shop work, the agents read the shop skills in `.claude/skills`.

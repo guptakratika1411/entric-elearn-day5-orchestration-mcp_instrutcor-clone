@@ -10,7 +10,7 @@ public static class EnrollmentEndpoints
     {
         app.MapPost("/api/enrollments", (EnrollRequest request, InMemoryStore store) =>
         {
-            var (enrollment, error) = store.Enroll(request.CourseId, request.StudentName);
+            var (enrollment, error) = store.EnrollFree(request.CourseId, request.StudentName);
             if (enrollment is null)
                 return error == "Already enrolled in this course."
                     ? Results.Conflict(new { error })

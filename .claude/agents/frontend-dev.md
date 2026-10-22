@@ -11,6 +11,7 @@ Files you own: everything in `frontend/` (src/pages, src/components, src/api.js,
 Files you must not touch: `backend/`, tests, and docs.
 
 1. Read CLAUDE.md and `.claude/skills/add-react-page/SKILL.md`. Follow them.
+   For shop screens (price, Add to cart, Cart, My Orders, Instructor Revenue) also follow `.claude/skills/shop-frontend/SKILL.md`.
 2. Use the API contract the main agent gave you (routes, request and response shapes). The backend is being built at the same time, so do not wait for it and do not read backend code.
 3. Put every backend call in `src/api.js`. Show errors with `<p className="message error">`.
 4. Run `cd frontend && npm install && npm run build`. Fix errors.

@@ -71,3 +71,41 @@ export const createCourse = (course) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(course),
   })
+
+export const formatPrice = (price) => (price > 0 ? `$${Number(price).toFixed(2)}` : 'Free')
+
+export const getCart = (studentName) =>
+  request(`/api/cart?studentName=${encodeURIComponent(studentName)}`)
+
+export const addToCart = (studentName, courseId) =>
+  request('/api/cart', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentName, courseId }),
+  })
+
+export const removeFromCart = (studentName, courseId) =>
+  request(`/api/cart?studentName=${encodeURIComponent(studentName)}&courseId=${courseId}`, {
+    method: 'DELETE',
+  })
+
+export const previewCheckout = (studentName, couponCode) =>
+  request('/api/checkout/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentName, couponCode }),
+  })
+
+export const checkout = (studentName, couponCode) =>
+  request('/api/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentName, couponCode }),
+  })
+
+export const getOrders = (studentName) =>
+  request(`/api/orders?studentName=${encodeURIComponent(studentName)}`)
+
+export const refundOrder = (orderId) => request(`/api/orders/${orderId}/refund`, { method: 'POST' })
+
+export const getInstructorRevenue = () => request('/api/instructors/revenue')

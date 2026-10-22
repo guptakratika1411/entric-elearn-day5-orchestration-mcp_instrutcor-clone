@@ -7,7 +7,7 @@ public record LessonRequest(string? Title, int DurationMinutes, string? Content)
 
 public record CourseRequest(
     string? Title, string? ShortDescription, string? Category,
-    string? Instructor, string? Level, List<LessonRequest>? Lessons);
+    string? Instructor, string? Level, List<LessonRequest>? Lessons, decimal Price = 0);
 
 public static class CourseEndpoints
 {
@@ -23,6 +23,7 @@ public static class CourseEndpoints
                 c.Category,
                 c.Instructor,
                 c.Level,
+                c.Price,
                 LessonCount = c.Lessons.Count
             }));
 
@@ -35,6 +36,7 @@ public static class CourseEndpoints
                 Category = request.Category ?? "",
                 Instructor = request.Instructor ?? "",
                 Level = request.Level ?? "",
+                Price = request.Price,
                 Lessons = (request.Lessons ?? new()).Select(l => new Lesson
                 {
                     Title = l.Title ?? "",
@@ -73,6 +75,7 @@ public static class CourseEndpoints
                 course.Category,
                 course.Instructor,
                 course.Level,
+                course.Price,
                 Lessons = course.Lessons.Select(l => new
                 {
                     l.Id,
