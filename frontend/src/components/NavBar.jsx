@@ -14,6 +14,10 @@ export default function NavBar() {
         <NavLink to="/cart">Cart</NavLink>
         <NavLink to="/orders">My Orders</NavLink>
         <NavLink to="/instructor-revenue">Revenue</NavLink>
+        <NavLink to="/dashboard">Dashboard</NavLink>
+        <NavLink to="/assignments">Assignments</NavLink>
+        <NavLink to="/instructor-dashboard">Instructor Stats</NavLink>
+        <NavLink to="/grading">Grading</NavLink>
       </div>
     </nav>
   )

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { formatPrice } from '../api.js'
+import { formatPrice, stars } from '../api.js'
 
 // onToggleBookmark is optional. When given, a bookmark button is shown.
 // onAddToCart is optional. When given, paid courses show an "Add to cart" button.
@@ -39,6 +39,9 @@ export default function CourseCard({ course, bookmarked = false, onToggleBookmar
         <span>{course.instructor}</span>
         <span>{course.level} · {course.lessonCount} lessons</span>
       </div>
+      {course.reviewCount > 0 && (
+        <span className="muted">{stars(course.averageRating)} {course.averageRating.toFixed(1)} ({course.reviewCount})</span>
+      )}
       <div className="price-row">
         <span className={course.price > 0 ? 'price' : 'price free'}>{formatPrice(course.price)}</span>
         {course.price > 0 && onAddToCart && (

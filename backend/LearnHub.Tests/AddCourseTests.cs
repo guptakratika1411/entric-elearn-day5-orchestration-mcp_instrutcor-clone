@@ -1,38 +1,42 @@
-using LearnHub.Api.Data;
-using LearnHub.Api.Models;
+using LearnHub.Api.Services;
 
 namespace LearnHub.Tests;
 
 public class AddCourseTests
 {
-    private static Course Draft(string title = "Git Basics") => new()
-    {
-        Title = title,
-        ShortDescription = "Track changes with Git.",
-        Category = "Programming",
-        Instructor = "Ana Ruiz",
-        Level = "beginner",
-        Lessons =
+    private static CourseDraft Draft(string title = "Git Basics") => new(
+        title, "Track changes with Git.", "Programming", "Ana Ruiz", "beginner",
+        new List<LessonDraft>
         {
-            new Lesson { Title = "What is Git", DurationMinutes = 8, Content = "Git saves versions." },
-            new Lesson { Title = "Commits", DurationMinutes = 10, Content = "A commit is a snapshot." }
-        }
-    };
+            new("What is Git", 8, "Git saves versions."),
+            new("Commits", 10, "A commit is a snapshot.")
+        });
 
     [Fact]
     public void AddCourse_Works_AndAssignsNewUniqueIds()
     {
-        var store = new InMemoryStore();
-        var oldMaxCourse = store.Courses.Max(c => c.Id);
-        var oldMaxLesson = store.Courses.SelectMany(c => c.Lessons).Max(l => l.Id);
+        using var env = new TestEnv();
+        var oldMaxCourse = env.Db.Courses.Max(c => c.Id);
+        var oldMaxLesson = env.Db.Lessons.Max(l => l.Id);
 
-        var (course, error) = store.AddCourse(Draft());
+        var (course, error) = env.Courses.AddCourse(Draft());
 
         Assert.Null(error);
         Assert.Equal(oldMaxCourse + 1, course!.Id);
         Assert.Equal("Beginner", course.Level);
         Assert.Equal(new[] { oldMaxLesson + 1, oldMaxLesson + 2 }, course.Lessons.Select(l => l.Id));
-        Assert.Contains(store.SearchCourses("git"), c => c.Id == course.Id);
+        Assert.Contains(env.Courses.Search("git"), c => c.Id == course.Id);
+    }
+
+    [Fact]
+    public void AddCourse_CreatesTheInstructorOnce()
+    {
+        using var env = new TestEnv();
+        env.Courses.AddCourse(Draft("Git Basics"));
+        env.Courses.AddCourse(Draft("Git Advanced"));
+
+        Assert.Equal(1, env.Db.Instructors.Count(i => i.FullName == "Ana Ruiz"));
+        Assert.Equal(2, env.Db.Courses.Count(c => c.Instructor.FullName == "Ana Ruiz"));
     }
 
     [Theory]
@@ -42,14 +46,14 @@ public class AddCourseTests
     [InlineData("instructor")]
     public void AddCourse_RequiresTextFields(string field)
     {
-        var store = new InMemoryStore();
+        using var env = new TestEnv();
         var draft = Draft();
-        if (field == "title") draft.Title = " ";
-        if (field == "shortDescription") draft.ShortDescription = "";
-        if (field == "category") draft.Category = "";
-        if (field == "instructor") draft.Instructor = "";
+        if (field == "title") draft = draft with { Title = " " };
+        if (field == "shortDescription") draft = draft with { ShortDescription = "" };
+        if (field == "category") draft = draft with { Category = "" };
+        if (field == "instructor") draft = draft with { Instructor = "" };
 
-        var (course, error) = store.AddCourse(draft);
+        var (course, error) = env.Courses.AddCourse(draft);
 
         Assert.Null(course);
         Assert.Equal($"{field} is required.", error);
@@ -58,37 +62,31 @@ public class AddCourseTests
     [Fact]
     public void AddCourse_RejectsBadLevel()
     {
-        var store = new InMemoryStore();
-        var draft = Draft();
-        draft.Level = "Expert";
-
-        Assert.Equal("level must be Beginner, Intermediate or Advanced.", store.AddCourse(draft).Error);
+        using var env = new TestEnv();
+        Assert.Equal("level must be Beginner, Intermediate or Advanced.", env.Courses.AddCourse(Draft() with { Level = "Expert" }).Error);
     }
 
     [Fact]
     public void AddCourse_RejectsMissingOrBadLessons()
     {
-        var store = new InMemoryStore();
+        using var env = new TestEnv();
 
-        var none = Draft();
-        none.Lessons.Clear();
-        Assert.Equal("At least one lesson is required.", store.AddCourse(none).Error);
+        var none = Draft() with { Lessons = new List<LessonDraft>() };
+        Assert.Equal("At least one lesson is required.", env.Courses.AddCourse(none).Error);
 
-        var noTitle = Draft();
-        noTitle.Lessons[0].Title = "";
-        Assert.Equal("Every lesson needs a title.", store.AddCourse(noTitle).Error);
+        var noTitle = Draft() with { Lessons = new List<LessonDraft> { new("", 5, "x") } };
+        Assert.Equal("Every lesson needs a title.", env.Courses.AddCourse(noTitle).Error);
 
-        var noTime = Draft();
-        noTime.Lessons[0].DurationMinutes = 0;
-        Assert.Equal("Every lesson needs durationMinutes above 0.", store.AddCourse(noTime).Error);
+        var noTime = Draft() with { Lessons = new List<LessonDraft> { new("Intro", 0, "x") } };
+        Assert.Equal("Every lesson needs durationMinutes above 0.", env.Courses.AddCourse(noTime).Error);
     }
 
     [Fact]
     public void AddCourse_RejectsDuplicateTitleIgnoringCase()
     {
-        var store = new InMemoryStore();
-        Assert.Null(store.AddCourse(Draft("Git Basics")).Error);
+        using var env = new TestEnv();
+        Assert.Null(env.Courses.AddCourse(Draft("Git Basics")).Error);
 
-        Assert.Equal("A course with this title already exists.", store.AddCourse(Draft("GIT BASICS")).Error);
+        Assert.Equal("A course with this title already exists.", env.Courses.AddCourse(Draft("GIT BASICS")).Error);
     }
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getCourse, enroll, addToCart, formatPrice, markLessonComplete, getProgress, getSavedName, saveName } from '../api.js'
+import { getCourse, enroll, addToCart, formatPrice, markLessonComplete, getProgress, getSavedName, saveName, stars, getCourseAssignments } from '../api.js'
+import ReviewsSection from '../components/ReviewsSection.jsx'
+import QaSection from '../components/QaSection.jsx'
 
 export default function CourseDetailPage() {
   const { id } = useParams()
@@ -9,10 +11,17 @@ export default function CourseDetailPage() {
   const [message, setMessage] = useState(null) // { type: 'ok' | 'error', text }
   const [error, setError] = useState('')
   const [doneIds, setDoneIds] = useState([])
+  const [assignments, setAssignments] = useState([])
 
   useEffect(() => {
     getCourse(id).then(setCourse).catch((e) => setError(e.message))
   }, [id])
+
+  useEffect(() => {
+    getCourseAssignments(id).then(setAssignments).catch(() => {})
+  }, [id])
+
+  const reloadCourse = () => getCourse(id).then(setCourse).catch(() => {})
 
   // Load which lessons the saved student has finished.
   useEffect(() => {
@@ -62,7 +71,15 @@ export default function CourseDetailPage() {
         <span>{course.instructor}</span>
         <span>{course.category} · {course.level}</span>
         <span>{formatPrice(course.price)}</span>
+        {course.reviewCount > 0 && <span>{stars(course.averageRating)} {course.averageRating.toFixed(1)} ({course.reviewCount})</span>}
       </p>
+      {course.prerequisites.length > 0 && (
+        <p className="muted">
+          Finish first: {course.prerequisites.map((p, i) => (
+            <span key={p.id}>{i > 0 && ', '}<Link to={`/courses/${p.id}`}>{p.title}</Link></span>
+          ))}
+        </p>
+      )}
 
       <form className="panel" onSubmit={handleEnroll}>
         <h2>{course.price > 0 ? 'Buy this course' : 'Enroll'}</h2>
@@ -93,6 +110,21 @@ export default function CourseDetailPage() {
           </li>
         ))}
       </ol>
+
+      {assignments.length > 0 && (
+        <>
+          <h2>Assignments</h2>
+          <ul>
+            {assignments.map((a) => (
+              <li key={a.id}><strong>{a.title}</strong> <span className="muted">due {new Date(a.dueAt).toLocaleDateString()}</span></li>
+            ))}
+          </ul>
+          <Link to="/assignments">Go to my assignments</Link>
+        </>
+      )}
+
+      <ReviewsSection courseId={course.id} onChanged={reloadCourse} />
+      <QaSection courseId={course.id} instructorId={course.instructorId} />
     </>
   )
 }

@@ -117,3 +117,17 @@ button:hover { background: var(--accent-dark); }
 .cart-table tfoot td { font-weight: 700; }
 .order-status { font-weight: 600; }
 .order-status.refunded { color: #991b1b; }
+
+/* Dashboards, reviews, Q&A, assignments */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; margin: 16px 0; }
+.stat { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.stat .label { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat .value { font-size: 1.5rem; font-weight: 700; }
+.stars { color: #d97706; letter-spacing: 0.05em; }
+.review, .question { border-top: 1px solid var(--border); padding: 10px 0; }
+.answer { margin: 6px 0 0 18px; padding: 6px 10px; border-left: 3px solid var(--border); }
+.answer.accepted { border-left-color: #16a34a; background: #f0fdf4; }
+.navbar-inner { flex-wrap: wrap; row-gap: 4px; height: auto; min-height: 56px; }
+textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem; font-family: inherit; }
+select { padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem; }
+.pill-late { color: #991b1b; font-weight: 600; }

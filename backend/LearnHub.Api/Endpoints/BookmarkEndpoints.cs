@@ -1,4 +1,4 @@
-using LearnHub.Api.Data;
+using LearnHub.Api.Services;
 
 namespace LearnHub.Api.Endpoints;
 
@@ -8,9 +8,9 @@ public static class BookmarkEndpoints
 {
     public static void MapBookmarkEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/bookmarks", (BookmarkRequest request, InMemoryStore store) =>
+        app.MapPost("/api/bookmarks", (BookmarkRequest request, BookmarkService bookmarks) =>
         {
-            var (bookmark, error) = store.AddBookmark(request.StudentName, request.CourseId);
+            var (bookmark, error) = bookmarks.AddBookmark(request.StudentName, request.CourseId);
             if (bookmark is null)
                 return error == "Already bookmarked."
                     ? Results.Conflict(new { error })
@@ -19,25 +19,10 @@ public static class BookmarkEndpoints
             return Results.Created($"/api/bookmarks/{bookmark.Id}", bookmark);
         });
 
-        app.MapDelete("/api/bookmarks", (string? studentName, int courseId, InMemoryStore store) =>
-            store.RemoveBookmark(studentName, courseId) ? Results.NoContent() : Results.NotFound());
+        app.MapDelete("/api/bookmarks", (string? studentName, int courseId, BookmarkService bookmarks) =>
+            bookmarks.RemoveBookmark(studentName, courseId) ? Results.NoContent() : Results.NotFound());
 
-        app.MapGet("/api/bookmarks", (string? studentName, InMemoryStore store) =>
-            store.GetBookmarks(studentName).Select(b =>
-            {
-                var course = store.Courses.First(c => c.Id == b.CourseId);
-                return new
-                {
-                    b.Id,
-                    b.CourseId,
-                    CourseTitle = course.Title,
-                    course.ShortDescription,
-                    course.Category,
-                    course.Instructor,
-                    course.Level,
-                    LessonCount = course.Lessons.Count,
-                    b.StudentName
-                };
-            }));
+        app.MapGet("/api/bookmarks", (string? studentName, BookmarkService bookmarks) =>
+            bookmarks.GetBookmarks(studentName));
     }
 }

@@ -109,3 +109,45 @@ export const getOrders = (studentName) =>
 export const refundOrder = (orderId) => request(`/api/orders/${orderId}/refund`, { method: 'POST' })
 
 export const getInstructorRevenue = () => request('/api/instructors/revenue')
+
+const json = (method, body) => ({
+  method,
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+})
+
+export const stars = (n) => '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n))
+
+// Reviews
+export const getReviews = (courseId) => request(`/api/courses/${courseId}/reviews`)
+export const addReview = (courseId, studentName, starCount, comment) =>
+  request(`/api/courses/${courseId}/reviews`, json('POST', { studentName, stars: starCount, comment }))
+
+// Questions and answers
+export const getQuestions = (courseId) => request(`/api/courses/${courseId}/questions`)
+export const askQuestion = (courseId, studentName, body) =>
+  request(`/api/courses/${courseId}/questions`, json('POST', { studentName, body }))
+export const answerQuestion = (questionId, payload) =>
+  request(`/api/questions/${questionId}/answers`, json('POST', payload))
+export const acceptAnswer = (answerId, instructorId) =>
+  request(`/api/answers/${answerId}/accept`, json('POST', { instructorId }))
+
+// Instructors
+export const getInstructors = () => request('/api/instructors')
+export const getInstructorDashboard = (id) => request(`/api/instructors/${id}/dashboard`)
+export const getPayouts = (month) => request(`/api/instructors/payouts?month=${encodeURIComponent(month)}`)
+export const getInstructorAssignments = (id) => request(`/api/instructors/${id}/assignments`)
+
+// Assignments
+export const getCourseAssignments = (courseId) => request(`/api/courses/${courseId}/assignments`)
+export const getMyAssignments = (studentName) =>
+  request(`/api/assignments?studentName=${encodeURIComponent(studentName)}`)
+export const submitAssignment = (assignmentId, studentName, body) =>
+  request(`/api/assignments/${assignmentId}/submissions`, json('POST', { studentName, body }))
+export const getSubmissions = (assignmentId) => request(`/api/assignments/${assignmentId}/submissions`)
+export const gradeSubmission = (submissionId, grade, feedback) =>
+  request(`/api/submissions/${submissionId}/grade`, json('PUT', { grade, feedback }))
+
+// Student dashboard
+export const getStudentDashboard = (studentName) =>
+  request(`/api/students/dashboard?studentName=${encodeURIComponent(studentName)}`)

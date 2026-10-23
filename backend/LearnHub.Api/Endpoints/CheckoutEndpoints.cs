@@ -1,4 +1,4 @@
-using LearnHub.Api.Data;
+using LearnHub.Api.Services;
 
 namespace LearnHub.Api.Endpoints;
 
@@ -8,9 +8,9 @@ public static class CheckoutEndpoints
 {
     public static void MapCheckoutEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/checkout/preview", (CheckoutRequest request, InMemoryStore store) =>
+        app.MapPost("/api/checkout/preview", (CheckoutRequest request, ShopService shop) =>
         {
-            var quote = store.Quote(request.StudentName, request.CouponCode);
+            var quote = shop.Quote(request.StudentName, request.CouponCode);
             return Results.Ok(new
             {
                 Lines = quote.Lines.Select(l => new { l.CourseId, l.Title, l.Price, l.BundleDiscount, l.CouponDiscount, l.Final }),
@@ -22,9 +22,9 @@ public static class CheckoutEndpoints
             });
         });
 
-        app.MapPost("/api/checkout", (CheckoutRequest request, InMemoryStore store) =>
+        app.MapPost("/api/checkout", (CheckoutRequest request, ShopService shop) =>
         {
-            var (order, error) = store.Checkout(request.StudentName, request.CouponCode);
+            var (order, error) = shop.Checkout(request.StudentName, request.CouponCode);
             if (order is null) return Results.BadRequest(new { error });
 
             return Results.Created($"/api/orders/{order.Id}", order);

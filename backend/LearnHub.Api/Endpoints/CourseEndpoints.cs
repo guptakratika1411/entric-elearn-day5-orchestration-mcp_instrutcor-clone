@@ -1,5 +1,4 @@
-using LearnHub.Api.Data;
-using LearnHub.Api.Models;
+using LearnHub.Api.Services;
 
 namespace LearnHub.Api.Endpoints;
 
@@ -13,38 +12,14 @@ public static class CourseEndpoints
 {
     public static void MapCourseEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/courses", (string? search, InMemoryStore store) =>
-            store.SearchCourses(search)
-            .Select(c => new
-            {
-                c.Id,
-                c.Title,
-                c.ShortDescription,
-                c.Category,
-                c.Instructor,
-                c.Level,
-                c.Price,
-                LessonCount = c.Lessons.Count
-            }));
+        app.MapGet("/api/courses", (string? search, CourseService courses) => courses.Search(search));
 
-        app.MapPost("/api/courses", (CourseRequest request, InMemoryStore store) =>
+        app.MapPost("/api/courses", (CourseRequest request, CourseService courses) =>
         {
-            var draft = new Course
-            {
-                Title = request.Title ?? "",
-                ShortDescription = request.ShortDescription ?? "",
-                Category = request.Category ?? "",
-                Instructor = request.Instructor ?? "",
-                Level = request.Level ?? "",
-                Price = request.Price,
-                Lessons = (request.Lessons ?? new()).Select(l => new Lesson
-                {
-                    Title = l.Title ?? "",
-                    DurationMinutes = l.DurationMinutes,
-                    Content = l.Content ?? ""
-                }).ToList()
-            };
-            var (course, error) = store.AddCourse(draft);
+            var draft = new CourseDraft(request.Title, request.ShortDescription, request.Category, request.Instructor,
+                request.Level, request.Lessons?.Select(l => new LessonDraft(l.Title, l.DurationMinutes, l.Content)).ToList(),
+                request.Price);
+            var (course, error) = courses.AddCourse(draft);
             if (course is null)
                 return error == "A course with this title already exists."
                     ? Results.Conflict(new { error })
@@ -56,34 +31,16 @@ public static class CourseEndpoints
                 course.Title,
                 course.ShortDescription,
                 course.Category,
-                course.Instructor,
+                Instructor = course.Instructor.FullName,
                 course.Level,
                 LessonCount = course.Lessons.Count
             });
         });
 
-        app.MapGet("/api/courses/{id:int}", (int id, InMemoryStore store) =>
+        app.MapGet("/api/courses/{id:int}", (int id, CourseService courses) =>
         {
-            var course = store.Courses.FirstOrDefault(c => c.Id == id);
-            if (course is null) return Results.NotFound();
-
-            return Results.Ok(new
-            {
-                course.Id,
-                course.Title,
-                course.ShortDescription,
-                course.Category,
-                course.Instructor,
-                course.Level,
-                course.Price,
-                Lessons = course.Lessons.Select(l => new
-                {
-                    l.Id,
-                    l.Title,
-                    l.DurationMinutes,
-                    l.Content
-                })
-            });
+            var course = courses.Get(id);
+            return course is null ? Results.NotFound() : Results.Ok(course);
         });
     }
 }
