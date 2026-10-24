@@ -32,6 +32,8 @@ npm run build               # tsc -> dist/; .mcp.json points at dist/index.js, s
 
 No linter or formatter is configured in any part of the repo.
 
+Hooks: `.claude/settings.json` runs `.claude/hooks/post-commit-claude-md.sh` after each `git commit` to prompt a CLAUDE.md review. Versioned git hooks live in `.githooks/`; enable with `bash .githooks/install.sh`.
+
 ## Configuration
 
 - The API connection string comes from `LEARNHUB_DB` if set, otherwise `ConnectionStrings:LearnHub` in `backend/LearnHub.Api/appsettings.json`. Both currently use the password `LearnHub!23`.

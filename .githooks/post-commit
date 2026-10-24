@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Remind to review CLAUDE.md when documented areas change. Never modifies files.
+if git show --name-only --pretty=format: HEAD | grep -qE 'db/schema.sql|Program.cs|\.mcp.json|package.json|Endpoints/|Services/'; then
+  echo "post-commit: documented areas changed - review CLAUDE.md for needed updates."
+fi
