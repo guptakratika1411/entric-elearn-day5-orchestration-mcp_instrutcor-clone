@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Block committing .env (secrets); typecheck the MCP server if its files are staged.
+staged=$(git diff --cached --name-only)
+if printf '%s\n' "$staged" | grep -qE '(^|/)\.env$'; then
+  echo "pre-commit: refusing to commit .env (secrets). Unstage it." >&2
+  exit 1
+fi
+if printf '%s\n' "$staged" | grep -q '^mcp-server/src/'; then
+  (cd mcp-server && npx tsc --noEmit) || { echo "pre-commit: mcp-server typecheck failed" >&2; exit 1; }
+fi

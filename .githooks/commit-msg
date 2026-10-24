@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Warn (non-blocking) if the subject line exceeds 72 chars.
+subject=$(head -n1 "$1")
+[ ${#subject} -gt 72 ] && echo "commit-msg: warning: subject is ${#subject} chars (>72)" >&2
+exit 0
