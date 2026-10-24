@@ -37,16 +37,7 @@ Both scripts need the `mysql` command line client and read these environment var
 | `LEARNHUB_DB_USER` | `root` |
 | `LEARNHUB_DB_PASSWORD` | `LearnHub!23` |
 
-No MySQL yet? Start one in Docker on port 3307 and point the script at it:
 
-```bash
-docker run -d --name learnhub-mysql -e MYSQL_ROOT_PASSWORD='LearnHub!23' -e MYSQL_DATABASE=learnhub -p 3307:3306 mysql:8.4
-# wait until MySQL accepts connections (about 20 seconds on first start), then load the data
-until docker exec learnhub-mysql mysqladmin ping -h 127.0.0.1 -uroot -p'LearnHub!23' --silent; do sleep 2; done
-LEARNHUB_DB_PORT=3307 bash db/reset.sh
-```
-
-Even when MySQL runs in Docker, the machine you run the script on needs the `mysql` client installed.
 
 Expected row counts:
 
